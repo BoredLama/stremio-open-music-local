@@ -13,7 +13,7 @@ const toStream = (newObj, type) => {
 
 module.exports = {
 	manifest: () => {
-		return {
+		return Promise.resolve({
 			"id": "org.stremio.opendirmusic",
 			"version": "1.0.0",
 
@@ -39,7 +39,7 @@ module.exports = {
 
 			"idPrefixes": [ "openmusic:" ]
 
-		}
+		})
 	},
 	handler: (args, local) => {
 		modules.set(local.modules)
