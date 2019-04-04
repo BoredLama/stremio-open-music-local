@@ -17,7 +17,7 @@ module.exports = {
 			"id": "org.stremio.opendirmusic",
 			"version": "1.0.0",
 
-			"name": "Stremio Open Music Addon",
+			"name": "Open Directories - Music",
 			"description": "Stremio Add-on to get music streaming results from Open Directories",
 
 			"icon": "https://secure.webtoolhub.com/static/resources/logos/set1/bc185e1e.jpg",
