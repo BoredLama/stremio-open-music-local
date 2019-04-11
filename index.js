@@ -1,9 +1,11 @@
-const modules = require('./modules')
 const openDirApi = require('./openDirectories.js')
+const url = require('url')
+const { proxy, config, cinemeta } = require('internal')
+
 
 const toStream = (newObj, type) => {
     return {
-        name: modules.get.url.parse(newObj.href).host,
+        name: url.parse(newObj.href).host,
         type: type,
         url: newObj.href,
         // presume 128kbps if the filename has no extra tags
@@ -11,124 +13,121 @@ const toStream = (newObj, type) => {
     }
 }
 
-module.exports = {
-	manifest: () => {
-		return Promise.resolve({
-			"id": "org.stremio.opendirmusic",
-			"version": "1.0.0",
+const { addonBuilder, getInterface, getRouter } = require('stremio-addon-sdk')
 
-			"name": "Open Directories - Music",
-			"description": "Stremio Add-on to get music streaming results from Open Directories",
+const builder = new addonBuilder({
+	"id": "org.stremio.opendirmusic",
+	"version": "1.0.0",
 
-			"icon": "https://secure.webtoolhub.com/static/resources/logos/set1/bc185e1e.jpg",
+	"name": "Open Directories - Music",
+	"description": "Stremio Add-on to get music streaming results from Open Directories",
 
-			"resources": [
-			    "stream", "meta", "catalog"
-			],
+	"icon": "https://secure.webtoolhub.com/static/resources/logos/set1/bc185e1e.jpg",
 
-			"catalogs": [
-			    {
-			        id: "opendirmusic",
-			        type: "tv",
-			        extraSupported: ["search"],
-			        extraRequired: ["search"]
-			    }
-			],
+	"resources": [
+	    "stream", "meta", "catalog"
+	],
 
-			"types": ["tv"],
+	"catalogs": [
+	    {
+	        id: "opendirmusic",
+	        type: "tv",
+	        extraSupported: ["search"],
+	        extraRequired: ["search"]
+	    }
+	],
 
-			"idPrefixes": [ "openmusic:" ]
+	"types": ["tv"],
 
-		})
-	},
-	handler: (args, local) => {
-		modules.set(local.modules)
-		const config = local.config
-		const proxy = modules.get.internal.proxy
-		const cinemeta = modules.get.internal.cinemeta
-		return new Promise((resolve, reject) => {
+	"idPrefixes": [ "openmusic:" ]
 
-		    if (!args.id) {
-		        reject(new Error('No ID Specified'))
-		        return
-		    }
+})
 
-		    if (args.resource == 'catalog') {
-		    	console.log(args)
-		        resolve({
-		            metas: [
-		                {
-		                    id: 'openmusic:'+encodeURIComponent(args.extra.search),
-		                    name: args.extra.search,
-		                    type: 'tv',
-		                    poster: 'https://secure.webtoolhub.com/static/resources/logos/set1/bc185e1e.jpg',
-		                    posterShape: 'landscape'
-		                }
-		            ]
-		        })
-		    } else if (args.resource == 'meta') {
-		        resolve({
-		            meta: {
-		                id: args.id,
-		                name: decodeURIComponent(args.id.replace('openmusic:','')),
-		                type: 'tv',
-		                poster: 'https://secure.webtoolhub.com/static/resources/logos/set1/bc185e1e.jpg',
-		                posterShape: 'landscape'
-		            }
-		        })
-		    } else if (args.resource == 'stream') {
+builder.defineCatalogHandler(args => {
+    return Promise.resolve({
+        metas: [
+            {
+                id: 'openmusic:'+encodeURIComponent(args.extra.search),
+                name: args.extra.search,
+                type: 'tv',
+                poster: 'https://secure.webtoolhub.com/static/resources/logos/set1/bc185e1e.jpg',
+                posterShape: 'landscape'
+            }
+        ]
+    })
 
-			    let results = []
+})
 
-			    let sentResponse = false
+builder.defineMetaHandler(args => {
+    return Promise.resolve({
+        meta: {
+            id: args.id,
+            name: decodeURIComponent(args.id.replace('openmusic:','')),
+            type: 'tv',
+            poster: 'https://secure.webtoolhub.com/static/resources/logos/set1/bc185e1e.jpg',
+            posterShape: 'landscape'
+        }
+    })
 
-			    const respondStreams = () => {
+})
 
-			        if (sentResponse) return
-			        sentResponse = true
+builder.defineStreamHandler(args => {
+	return new Promise((resolve, reject) => {
 
-			        if (results && results.length) {
+	    let results = []
 
-			            tempResults = results
+	    let sentResponse = false
 
-			            const streams = []
+	    const respondStreams = () => {
 
-			            tempResults.forEach(stream => { streams.push(toStream(stream, args.type)) })
+	        if (sentResponse) return
+	        sentResponse = true
 
-			            if (streams.length) {
-			                if (config.remote) {
-			                    cb(null, { streams: streams })
-			                } else {
-			                    resolve({ streams: proxy.addAll(streams) })
-			                }
-			            } else {
-			                resolve({ streams: [] })
-			            }
-			        } else {
-			            resolve({ streams: [] })
-			        }
-			    }
+	        if (results && results.length) {
 
-			    const searchQuery = {
-			        name: decodeURIComponent(args.id.replace('openmusic:', '')),
-			        type: args.type
-			    }
+	            tempResults = results
 
-			    openDirApi.search(config, searchQuery,
+	            const streams = []
 
-			        partialResponse = (tempResults) => {
-			            results = results.concat(tempResults)
-			        },
+	            tempResults.forEach(stream => { streams.push(toStream(stream, args.type)) })
 
-			        endResponse = (tempResults) => {
-			            results = tempResults
-			            respondStreams()
-			        })
+	            if (streams.length) {
+	                if (config.remote) {
+	                    cb(null, { streams: streams })
+	                } else {
+	                    resolve({ streams: proxy.addAll(streams) })
+	                }
+	            } else {
+	                resolve({ streams: [] })
+	            }
+	        } else {
+	            resolve({ streams: [] })
+	        }
+	    }
+
+	    const searchQuery = {
+	        name: decodeURIComponent(args.id.replace('openmusic:', '')),
+	        type: args.type
+	    }
+
+	    openDirApi.search(searchQuery,
+
+	        partialResponse = (tempResults) => {
+	            results = results.concat(tempResults)
+	        },
+
+	        endResponse = (tempResults) => {
+	            results = tempResults
+	            respondStreams()
+	        })
 
 
-			    if (config.responseTimeout)
-			        setTimeout(respondStreams, config.responseTimeout)
-			}
-		})
-	}
-}
+	    if (config.responseTimeout)
+	        setTimeout(respondStreams, config.responseTimeout)
+
+	})
+})
+
+const addonInterface = getInterface(builder)
+
+module.exports = getRouter(addonInterface)
