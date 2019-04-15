@@ -31,13 +31,13 @@ const builder = new addonBuilder({
 	"catalogs": [
 	    {
 	        id: "opendirmusic",
-	        type: "tv",
+	        type: "music",
 	        extraSupported: ["search"],
 	        extraRequired: ["search"]
 	    }
 	],
 
-	"types": ["tv"],
+	"types": ["music", "tv"],
 
 	"idPrefixes": [ "openmusic:" ]
 
