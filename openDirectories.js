@@ -1,5 +1,5 @@
 const helper = require('./helpers')
-const google = require('google')
+const google = require('google-it')
 const needle = require('needle')
 const cheerio = require('cheerio')
 
@@ -10,8 +10,6 @@ const supportedFiles = ['mp3']
 const openDirApi = {
 
 	search: (query, cb, end) => {
-
-		google.resultsPerPage = config.perPage
 
 		let searchQuery = query.name
 
@@ -24,29 +22,30 @@ const openDirApi = {
 
 		const results = []
 
-		google(searchQuery + ' +(' + (config.onlyMP4 ? 'mp4' : supportedFiles.join('|')) + ') -inurl:(jsp|pl|php|html|aspx|htm|cf|shtml) intitle:index.of -inurl:(listen77|mp3raid|mp3toss|mp3drug|index_of|wallywashis)', (err, res) => {
+		google({ limit: config.perPage, query: searchQuery + ' +(' + (config.onlyMP4 ? 'mp4' : supportedFiles.join('|')) + ') -inurl:(jsp|pl|php|html|aspx|htm|cf|shtml) intitle:index.of -inurl:(listen77|mp3raid|mp3toss|mp3drug|index_of|wallywashis)' }).then(res => {
 
-		  if (err) {
-		  	console.log(err.message || err)
-		  	end([])
-		  	return
-		  }
-
-		  if (!res || !res.links) {
+		  if (!res || !res.length || !Array.isArray(res)) {
 		  	console.log('no google results')
 		  	end([])
 		  	return
 		  }
 
-		  for (var i = 0; i < res.links.length; ++i) {
+		  res = res.filter(el => {
+		  	if (el.link.startsWith('https://translate.'))
+		  		return false
+		  	return true
+		  })
 
-		    const link = res.links[i]
+
+		  for (var i = 0; i < res.length; ++i) {
+
+		    const link = res[i]
 
 		    if (link.title.startsWith('Index of')) {
 
 		    	allReqs++
 
-				needle.get(link.href, {
+				needle.get(link.link, {
 					open_timeout: config.openTimeout,
 					read_timeout: config.readTimeout,
 					parse_response: false
@@ -64,13 +63,13 @@ const openDirApi = {
 							if (!href) return
 
 							if (!href.startsWith('http:') && !href.startsWith('https:'))
-								href = link.href + href
+								href = link.link + href
 
 							const parts = href.split('/')
 							const filename = parts[parts.length -1]
 							const extension = filename.split('.').pop()
 
-							if (helper.isValid(filename, query.name, helper.episodeTag(query.season, query.episode))) {
+							if (helper.isValid(filename, query.name)) {
 
 								if (!config.onlyMP4 && supportedFiles.indexOf(extension.toLowerCase()) > -1)
 									found = true
@@ -119,6 +118,10 @@ const openDirApi = {
 
 		  }
 
+		}).catch(err => {
+		  	console.log(err.message || err)
+		  	end([])
+		  	return
 		})
 
 	}
